@@ -55,3 +55,10 @@ export async function updateInvoice(id: string, formData: FormData) {
   revalidatePath(PATH_URL);
   redirect(PATH_URL);
 }
+
+// delete invoice..
+export async function deleteInvoice(id: string) {
+  await sql`DELETE FROM invoices WHERE id = ${id}`;
+  revalidatePath(PATH_URL);
+  redirect(PATH_URL);
+}
