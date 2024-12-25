@@ -8,7 +8,7 @@ import {
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { Button } from "@/app/ui/button";
-import { updateInvoice } from "@/app/lib/actions";
+import { updateInvoice, State } from "@/app/lib/actions";
 
 export default function EditInvoiceForm({
   invoice,
@@ -18,7 +18,8 @@ export default function EditInvoiceForm({
   customers: CustomerField[];
 }) {
   const updateInvoiceWithId = async (formData: FormData) => {
-    await updateInvoice(invoice.id, formData);
+    const initialState: State = { message: null, errors: {} };
+    await updateInvoice(initialState, invoice.id, formData);
   };
   return (
     <form action={updateInvoiceWithId}>
