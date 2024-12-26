@@ -1,5 +1,5 @@
 import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { authConfig } from "./auth.config";
 import { z } from "zod";
 import { sql } from "@vercel/postgres";
@@ -9,6 +9,11 @@ import bcrypt from "bcrypt";
 async function getUser(email: string): Promise<User | undefined> {
   try {
     const user = await sql<User>`SELECT * FROM users WHERE email=${email}`;
+    if (user.rows.length === 0) {
+      console.log(`No user found with email: ${email}`);
+      return undefined;
+    }
+    console.log("User fetched:", user.rows[0]);
     return user.rows[0];
   } catch (error) {
     console.error("Failed to fetch user:", error);
@@ -19,23 +24,47 @@ async function getUser(email: string): Promise<User | undefined> {
 export const { auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
-    Credentials({
+    CredentialsProvider({
       async authorize(credentials) {
         const parsedCredentials = z
           .object({ email: z.string().email(), password: z.string().min(6) })
           .safeParse(credentials);
 
-        if (parsedCredentials.success) {
-          const { email, password } = parsedCredentials.data;
-          const user = await getUser(email);
-          if (!user) return null;
-          const passwordsMatch = await bcrypt.compare(password, user.password);
-          if (passwordsMatch) return user;
+        if (!parsedCredentials.success) {
+          console.error("Invalid credentials format:", parsedCredentials.error.errors);
+          return null;
         }
 
-        console.log("Invalid credentials");
-        return null;
+        const { email, password } = parsedCredentials.data;
+        try {
+          const user = await getUser(email);
+          if (!user) {
+            console.error(`No user found with email: ${email}`);
+            return null;
+          }
+
+          const passwordsMatch = await bcrypt.compare(password, user.password);
+          if (passwordsMatch) {
+            return user;
+          }
+
+          console.error("Password mismatch for user:", email);
+          return null;
+        } catch (error) {
+          console.error("Error in authorize function:", error);
+          throw new Error("Internal server error. Please try again.");
+        }
       },
     }),
   ],
+  callbacks: {
+    async redirect({ url, baseUrl }) {
+      // Redirect to dashboard after successful login
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      return `${baseUrl}/dashboard`;
+    },
+  },
+  debug: process.env.NODE_ENV === "production", // Enable debugging in production
 });
