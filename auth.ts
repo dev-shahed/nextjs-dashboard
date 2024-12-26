@@ -13,7 +13,6 @@ async function getUser(email: string): Promise<User | undefined> {
       console.log(`No user found with email: ${email}`);
       return undefined;
     }
-    console.log("User fetched:", user.rows[0]);
     return user.rows[0];
   } catch (error) {
     console.error("Failed to fetch user:", error);
@@ -29,34 +28,21 @@ export const { auth, signIn, signOut } = NextAuth({
         const parsedCredentials = z
           .object({ email: z.string().email(), password: z.string().min(6) })
           .safeParse(credentials);
-
-        if (!parsedCredentials.success) {
-          console.error("Invalid credentials format:", parsedCredentials.error.errors);
-          return null;
-        }
-
+        if (!parsedCredentials.success) return null;
         const { email, password } = parsedCredentials.data;
         try {
           const user = await getUser(email);
-          if (!user) {
-            console.error(`No user found with email: ${email}`);
-            return null;
-          }
-
+          if (!user) return null;
           const passwordsMatch = await bcrypt.compare(password, user.password);
-          if (passwordsMatch) {
-            return user;
-          }
-
-          console.error("Password mismatch for user:", email);
+          if (passwordsMatch) return user;
           return null;
         } catch (error) {
-          console.error("Error in authorize function:", error);
           throw new Error("Internal server error. Please try again.");
         }
       },
     }),
   ],
+
   callbacks: {
     async redirect({ url, baseUrl }) {
       // Redirect to dashboard after successful login
